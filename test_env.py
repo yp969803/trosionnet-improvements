@@ -28,5 +28,5 @@ def test_gibbs_monotone_in_energy():
 
 def test_normalizers():
     mol = random_branched_alkane(4, seed=2)
-    e0, z0 = etkdg_normalizers(mol, n_confs=30)
-    assert z0 >= 1.0  # the lowest conformer alone contributes exp(0) = 1
+    e0, z0 = etkdg_normalizers(mol, n_confs=30, seeds=(0, 1))
+    assert z0 >= 0.5  # the lowest conformer contributes exp(0) = 1, divided by 2 seeds

@@ -7,12 +7,18 @@ from rdkit.Chem import AllChem, TorsionFingerprints
 from env import gibbs
 
 
-def etkdg_baseline(mol, e0, z0, tau, n=200, tfd_threshold=0.10, seed=1):
-    """Gibbs score of n ETKDG+MMFF conformers after TFD dedup (same rule as TorsionEnv).
+def etkdg_baseline(mol, e0, z0, tau, n=200, tfd_threshold=0.10, seeds=(100, 101, 102)):
+    """Mean over `seeds` of the Gibbs score of n ETKDG+MMFF conformers after TFD dedup.
 
-    Pass the env's e0/z0 so the score is on the env's reward scale. The default seed
-    differs from etkdg_normalizers (seed 0) so this is an independent sample.
+    Pass the env's e0/z0 so the score is on the env's reward scale. The default seeds
+    differ from etkdg_normalizers' (0-3) so these are independent samples; averaging
+    softens the effect of one lucky low-energy run.
     """
+    runs = [_etkdg_run(mol, e0, z0, tau, n, tfd_threshold, s) for s in seeds]
+    return {k: sum(r[k] for r in runs) / len(runs) for k in runs[0]}
+
+
+def _etkdg_run(mol, e0, z0, tau, n, tfd_threshold, seed):
     t0 = time.time()
     m = Chem.Mol(mol)
     m.RemoveAllConformers()

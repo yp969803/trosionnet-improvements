@@ -29,17 +29,23 @@ def gibbs(energy, e0, z0, tau):
     return math.exp(-(energy - e0) / (K_BOLTZMANN * tau)) / z0
 
 
-def etkdg_normalizers(mol, tau=500.0, n_confs=200, seed=0):
-    """E0, Z0 from classical ETKDG conformers so that the baseline set scores ~1.
+def etkdg_normalizers(mol, tau=500.0, n_confs=200, seeds=(0, 1, 2, 3)):
+    """E0, Z0 from classical ETKDG conformers, pooled over several seeds.
 
-    shortcut: E0 = lowest energy found, Z0 = sum of Boltzmann weights over all
-    ETKDG conformers without dedup; the paper does not spell out its recipe (Table 4).
+    One ETKDG run stays in one region, so its lowest energy varies a lot between seeds
+    (about 11 kcal/mol on an 11-torsion alkane), and exp() blows that up. E0 is the lowest
+    energy over all seeds; Z0 is the Boltzmann sum divided by len(seeds), so one run of
+    n_confs scores about 1.
+
+    shortcut: no dedup, and E0 can still be beaten by a lucky run; the paper does not
+    spell out its recipe (Table 4). Upgrade to more seeds if scores are still erratic.
     """
-    m = Chem.Mol(mol)
-    m.RemoveAllConformers()
-    AllChem.EmbedMultipleConfs(m, n_confs, randomSeed=seed)
-    res = AllChem.MMFFOptimizeMoleculeConfs(m, maxIters=2000)
-    energies = [e for _converged, e in res]
+    energies = []
+    for seed in seeds:
+        m = Chem.Mol(mol)
+        m.RemoveAllConformers()
+        AllChem.EmbedMultipleConfs(m, n_confs, randomSeed=seed)
+        energies += [e for _converged, e in AllChem.MMFFOptimizeMoleculeConfs(m, maxIters=2000)]
     e0 = min(energies)
-    z0 = sum(math.exp(-(e - e0) / (K_BOLTZMANN * tau)) for e in energies)
+    z0 = sum(math.exp(-(e - e0) / (K_BOLTZMANN * tau)) for e in energies) / len(seeds)
     return e0, z0
